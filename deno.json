@@ -8,13 +8,15 @@
     "check": "deno check main.ts",
     "lint": "deno lint",
     "fmt": "deno fmt",
-    "compile": "deno compile --allow-ffi --allow-read --allow-write --allow-net --allow-env --allow-sys -o fep-mcp main.ts"
+    "compile": "deno compile --allow-ffi --allow-read --allow-write --allow-net --allow-env --allow-sys -o fep-mcp main.ts",
+    "pack": "deno run -A scripts/pack.ts"
   },
   "imports": {
     "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@1.25.1",
     "es-git": "npm:es-git@0.4.0",
     "@std/yaml": "jsr:@std/yaml@1.0.10",
-    "zod": "npm:zod@4.2.1"
+    "zod": "npm:zod@4.2.1",
+    "@david/dax": "jsr:@david/dax@0.44.1"
   },
   "fmt": {
     "exclude": ["*.md"]

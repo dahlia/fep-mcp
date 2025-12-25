@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: read
+      contents: write
       id-token: write
 
     steps:
@@ -18,7 +18,7 @@ jobs:
 
       - uses: denoland/setup-deno@v2
         with:
-          deno-version: "2.x"
+          deno-version: 2.5.6
 
       - name: Check formatting
         run: deno fmt --check
@@ -41,3 +41,12 @@ jobs:
 
       - name: Publish to JSR
         run: deno publish
+
+      - name: Build release binaries
+        run: deno task pack
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dists/*
+          generate_release_notes: true
