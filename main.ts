@@ -52,7 +52,9 @@ async function main(): Promise<void> {
   };
 
   Deno.addSignalListener("SIGINT", shutdown);
-  Deno.addSignalListener("SIGTERM", shutdown);
+  if (Deno.build.os !== "windows") {
+    Deno.addSignalListener("SIGTERM", shutdown);
+  }
 
   // Connect and start serving
   console.error("MCP server ready, waiting for connections...");
