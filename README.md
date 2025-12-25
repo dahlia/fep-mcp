@@ -1,13 +1,20 @@
 FEP MCP
 =======
 
+[![JSR][JSR badge]][JSR]
+[![GitHub Actions][GitHub Actions badge]][GitHub Actions]
+
 An [MCP] (Model Context Protocol) server that provides access to [Fediverse
 Enhancement Proposals][FEP] (FEPs). This server clones the FEP repository from
 Codeberg on startup and exposes tools and resources for AI assistants to read
 and search FEP documents.
 
+[JSR]: https://jsr.io/@hongminhee/fep-mcp
+[JSR badge]: https://jsr.io/badges/@hongminhee/fep-mcp
+[GitHub Actions]: https://github.com/dahlia/fep-mcp/actions/workflows/ci.yaml
+[GitHub Actions badge]: https://github.com/dahlia/fep-mcp/actions/workflows/ci.yaml/badge.svg
 [MCP]: https://modelcontextprotocol.io/
-[FEP]: https://codeberg.org/fediverse/fep
+[FEP]: https://w3id.org/fep/
 
 
 Why?
@@ -24,7 +31,7 @@ Installation
 
 ### Using JSR (recommended)
 
-You can run the server directly from JSR:
+You can run the server directly from [JSR]:
 
 ~~~~sh
 deno run \
