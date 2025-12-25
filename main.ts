@@ -3,6 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { cleanupRepository, initializeRepository } from "./repository.ts";
 import { registerTools } from "./tools.ts";
 import { registerResources } from "./resources.ts";
+import denoConfig from "./deno.json" with { type: "json" };
 
 /**
  * FEP MCP Server
@@ -13,7 +14,7 @@ import { registerResources } from "./resources.ts";
  */
 
 const SERVER_NAME = "fep-mcp";
-const SERVER_VERSION = "0.1.0";
+const SERVER_VERSION = denoConfig.version;
 
 /**
  * Main entry point for the FEP MCP server.
