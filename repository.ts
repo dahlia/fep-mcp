@@ -17,14 +17,10 @@ let currentRepo: Repository | null = null;
 let currentRepoPath: string | null = null;
 
 /**
- * Generates a unique temporary directory path for the FEP repository.
+ * Creates a unique temporary directory for the FEP repository.
  */
-function generateTempPath(): string {
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2, 8);
-  const tmpDir = Deno.env.get("TMPDIR") || Deno.env.get("TMP") ||
-    Deno.env.get("TEMP") || "/tmp";
-  return `${tmpDir}/fep-mcp-${timestamp}-${random}`;
+async function createTempDir(): Promise<string> {
+  return await Deno.makeTempDir({ prefix: "fep-mcp-" });
 }
 
 /**
@@ -101,7 +97,7 @@ export async function initializeRepository(): Promise<string> {
     currentRepoPath = null;
   }
 
-  const repoPath = generateTempPath();
+  const repoPath = await createTempDir();
   currentRepo = await cloneWithRetry(repoPath);
   currentRepoPath = repoPath;
 
