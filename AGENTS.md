@@ -10,8 +10,9 @@ Project overview
 
 FEP MCP is an MCP (Model Context Protocol) server that provides access to
 Fediverse Enhancement Proposals (FEPs). It clones the FEP repository from
-Codeberg on startup and exposes tools and resources for AI assistants to read
-and search FEP documents.
+Codeberg into a shared local cache, refreshes that cache on startup, and
+exposes tools and resources for AI assistants to read and search FEP
+documents.
 
 
 Development commands
@@ -19,6 +20,7 @@ Development commands
 
 ~~~~ sh
 deno task start     # Run the MCP server
+deno task test      # Run tests
 deno task check     # Type check
 deno task lint      # Lint code
 deno task fmt       # Format code
@@ -36,7 +38,7 @@ The server is structured around these main components:
     server, and registers signal handlers for graceful shutdown
 
  -  *repository.ts*: Manages the FEP git repository (clone, refresh, file
-    reading). Clones to a temp directory on startup with retry logic
+    reading). Uses a shared cache directory and refreshes the clone on startup
 
  -  *tools.ts*: Implements MCP tools (`list_feps`, `get_fep`, `search_feps`,
     `refresh_repository`)
@@ -47,9 +49,18 @@ The server is structured around these main components:
 
  -  *yaml.ts*: Parses YAML frontmatter from FEP markdown documents
 
-Data flow: The server clones the FEP repository → reads *index.json* for
-metadata → reads individual FEP markdown files from *fep/{slug}/fep-{slug}.md*
-→ parses YAML frontmatter and returns structured data.
+Data flow: The server opens or clones a shared cached FEP repository → refreshes
+it from origin when possible → reads *index.json* for metadata → reads
+individual FEP markdown files from *fep/{slug}/fep-{slug}.md* → parses YAML
+frontmatter and returns structured data.
+
+Repository cache
+----------------
+
+The shared clone is stored in the OS cache directory by default and can be
+overridden with the `FEP_MCP_REPOSITORY_DIR` environment variable. If startup
+refresh fails but a valid local cache already exists, the server continues with
+the stale cached copy.
 
 
 Platform notes

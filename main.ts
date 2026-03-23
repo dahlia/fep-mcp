@@ -9,8 +9,8 @@ import denoConfig from "./deno.json" with { type: "json" };
  * FEP MCP Server
  *
  * An MCP server that provides access to Fediverse Enhancement Proposals (FEPs).
- * On startup, it clones the FEP repository from Codeberg and exposes tools
- * and resources for reading and searching FEP documents.
+ * On startup, it prepares a shared local cache of the FEP repository and
+ * exposes tools and resources for reading and searching FEP documents.
  */
 
 const SERVER_NAME = "fep-mcp";
@@ -25,7 +25,7 @@ async function main(): Promise<void> {
 
   try {
     const repoPath = await initializeRepository();
-    console.error(`FEP repository initialized at: ${repoPath}`);
+    console.error(`FEP repository cache ready at: ${repoPath}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`Failed to initialize FEP repository: ${message}`);

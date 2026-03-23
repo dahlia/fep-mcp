@@ -5,13 +5,16 @@
     "jsr:@david/dax@0.44.1": "0.44.1",
     "jsr:@david/path@0.2": "0.2.0",
     "jsr:@david/which@~0.4.1": "0.4.1",
+    "jsr:@std/assert@1.0.15": "1.0.15",
     "jsr:@std/bytes@^1.0.5": "1.0.6",
     "jsr:@std/fmt@1": "1.0.8",
     "jsr:@std/fs@1": "1.0.21",
     "jsr:@std/fs@^1.0.20": "1.0.21",
+    "jsr:@std/internal@^1.0.10": "1.0.12",
     "jsr:@std/internal@^1.0.12": "1.0.12",
     "jsr:@std/io@0.225": "0.225.2",
     "jsr:@std/path@1": "1.1.4",
+    "jsr:@std/path@1.1.2": "1.1.2",
     "jsr:@std/path@^1.1.4": "1.1.4",
     "jsr:@std/yaml@1.0.10": "1.0.10",
     "npm:@modelcontextprotocol/sdk@1.25.1": "1.25.1_zod@4.2.1_ajv@8.17.1_express@5.2.1",
@@ -44,6 +47,12 @@
     "@david/which@0.4.1": {
       "integrity": "896a682b111f92ab866cc70c5b4afab2f5899d2f9bde31ed00203b9c250f225e"
     },
+    "@std/assert@1.0.15": {
+      "integrity": "d64018e951dbdfab9777335ecdb000c0b4e3df036984083be219ce5941e4703b",
+      "dependencies": [
+        "jsr:@std/internal@^1.0.12"
+      ]
+    },
     "@std/bytes@1.0.6": {
       "integrity": "f6ac6adbd8ccd99314045f5703e23af0a68d7f7e58364b47d2c7f408aeb5820a"
     },
@@ -53,7 +62,7 @@
     "@std/fs@1.0.21": {
       "integrity": "d720fe1056d78d43065a4d6e0eeb2b19f34adb8a0bc7caf3a4dbf1d4178252cd",
       "dependencies": [
-        "jsr:@std/internal",
+        "jsr:@std/internal@^1.0.12",
         "jsr:@std/path@^1.1.4"
       ]
     },
@@ -66,10 +75,16 @@
         "jsr:@std/bytes"
       ]
     },
+    "@std/path@1.1.2": {
+      "integrity": "c0b13b97dfe06546d5e16bf3966b1cadf92e1cc83e56ba5476ad8b498d9e3038",
+      "dependencies": [
+        "jsr:@std/internal@^1.0.10"
+      ]
+    },
     "@std/path@1.1.4": {
       "integrity": "1d2d43f39efb1b42f0b1882a25486647cb851481862dc7313390b2bb044314b5",
       "dependencies": [
-        "jsr:@std/internal"
+        "jsr:@std/internal@^1.0.12"
       ]
     },
     "@std/yaml@1.0.10": {
@@ -652,6 +667,8 @@
   "workspace": {
     "dependencies": [
       "jsr:@david/dax@0.44.1",
+      "jsr:@std/assert@1.0.15",
+      "jsr:@std/path@1.1.2",
       "jsr:@std/yaml@1.0.10",
       "npm:@modelcontextprotocol/sdk@1.25.1",
       "npm:es-git@0.4.0",

@@ -1,8 +1,12 @@
 import { cloneRepository, openRepository } from "es-git";
 import type { Repository } from "es-git";
+import { basename, dirname, join } from "@std/path";
 
 /** The FEP repository URL */
 const FEP_REPO_URL = "https://codeberg.org/fediverse/fep.git";
+
+/** Environment variable for overriding the shared repository directory */
+const REPOSITORY_DIR_ENV = "FEP_MCP_REPOSITORY_DIR";
 
 /** Maximum retry attempts for clone operation */
 const MAX_RETRIES = 3;
@@ -16,24 +20,37 @@ let currentRepo: Repository | null = null;
 /** Current repository path */
 let currentRepoPath: string | null = null;
 
-/**
- * Creates a unique temporary directory for the FEP repository.
- */
-async function createTempDir(): Promise<string> {
-  return await Deno.makeTempDir({ prefix: "fep-mcp-" });
+export interface InitializeRepositoryOptions {
+  repositoryDir?: string;
+  repositoryUrl?: string;
+  onBeforeInstallClone?: (() => Promise<void>) | undefined;
 }
 
 /**
- * Cleans up the old repository directory if it exists.
+ * Removes a path if it exists.
  */
-async function cleanupOldRepo(path: string): Promise<void> {
+async function removePathIfExists(path: string): Promise<void> {
   try {
     await Deno.remove(path, { recursive: true });
   } catch (error) {
-    // Ignore errors if the directory doesn't exist
     if (!(error instanceof Deno.errors.NotFound)) {
-      console.error(`Warning: Failed to cleanup old repo at ${path}:`, error);
+      console.error(`Warning: Failed to remove ${path}:`, error);
     }
+  }
+}
+
+/**
+ * Checks whether a path exists.
+ */
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await Deno.stat(path);
+    return true;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return false;
+    }
+    throw error;
   }
 }
 
@@ -45,21 +62,84 @@ function delay(ms: number): Promise<void> {
 }
 
 /**
+ * Gets the user's home directory.
+ */
+function getHomeDirectory(): string {
+  const home = Deno.env.get("HOME") ?? Deno.env.get("USERPROFILE");
+  if (!home) {
+    throw new Error("Unable to determine the user's home directory.");
+  }
+  return home;
+}
+
+/**
+ * Gets the default cache directory for the current platform.
+ */
+function getDefaultCacheDirectory(): string {
+  switch (Deno.build.os) {
+    case "windows":
+      return Deno.env.get("LOCALAPPDATA") ??
+        Deno.env.get("APPDATA") ??
+        join(getHomeDirectory(), "AppData", "Local");
+    case "darwin":
+      return join(getHomeDirectory(), "Library", "Caches");
+    default:
+      return Deno.env.get("XDG_CACHE_HOME") ??
+        join(getHomeDirectory(), ".cache");
+  }
+}
+
+/**
+ * Resolves the shared repository path.
+ */
+function resolveRepositoryPath(
+  options: InitializeRepositoryOptions = {},
+): string {
+  return options.repositoryDir ??
+    Deno.env.get(REPOSITORY_DIR_ENV) ??
+    join(getDefaultCacheDirectory(), "fep-mcp", "repository");
+}
+
+/**
+ * Resolves the repository URL.
+ */
+function resolveRepositoryUrl(
+  options: InitializeRepositoryOptions = {},
+): string {
+  return options.repositoryUrl ?? FEP_REPO_URL;
+}
+
+/**
+ * Creates a unique temporary directory beside the shared repository path.
+ */
+async function createTempCloneDir(repositoryPath: string): Promise<string> {
+  await Deno.mkdir(dirname(repositoryPath), { recursive: true });
+  return await Deno.makeTempDir({
+    dir: dirname(repositoryPath),
+    prefix: `${basename(repositoryPath)}.tmp-`,
+  });
+}
+
+/**
  * Clones the FEP repository with retry logic.
  *
+ * @param repoUrl Remote repository URL
  * @param destPath Destination path for the cloned repository
  * @returns The cloned repository instance
  * @throws Error if clone fails after all retries
  */
-async function cloneWithRetry(destPath: string): Promise<Repository> {
+async function cloneWithRetry(
+  repoUrl: string,
+  destPath: string,
+): Promise<Repository> {
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       console.error(
-        `Cloning FEP repository (attempt ${attempt}/${MAX_RETRIES})...`,
+        `Cloning FEP repository into shared cache (attempt ${attempt}/${MAX_RETRIES})...`,
       );
-      const repo = await cloneRepository(FEP_REPO_URL, destPath);
+      const repo = await cloneRepository(repoUrl, destPath);
       console.error("FEP repository cloned successfully.");
       return repo;
     } catch (error) {
@@ -70,9 +150,7 @@ async function cloneWithRetry(destPath: string): Promise<Repository> {
         const delayMs = BASE_DELAY_MS * Math.pow(2, attempt - 1);
         console.error(`Retrying in ${delayMs}ms...`);
         await delay(delayMs);
-
-        // Clean up failed clone attempt
-        await cleanupOldRepo(destPath);
+        await removePathIfExists(destPath);
       }
     }
   }
@@ -83,25 +161,178 @@ async function cloneWithRetry(destPath: string): Promise<Repository> {
 }
 
 /**
- * Initializes the FEP repository by cloning it to a temporary directory.
- * This should be called on server startup.
- *
- * @returns The path to the cloned repository
- * @throws Error if initialization fails
+ * Opens an existing repository if the shared cache contains a valid clone.
  */
-export async function initializeRepository(): Promise<string> {
-  // Clean up previous repo if exists
-  if (currentRepoPath) {
-    await cleanupOldRepo(currentRepoPath);
-    currentRepo = null;
-    currentRepoPath = null;
+async function openExistingRepository(
+  repositoryPath: string,
+): Promise<Repository | null> {
+  try {
+    await Deno.stat(repositoryPath);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return null;
+    }
+    throw error;
   }
 
-  const repoPath = await createTempDir();
-  currentRepo = await cloneWithRetry(repoPath);
-  currentRepoPath = repoPath;
+  try {
+    return await openRepository(repositoryPath);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(
+      `Shared repository cache at ${repositoryPath} is invalid; recreating it: ${message}`,
+    );
+    await removePathIfExists(repositoryPath);
+    return null;
+  }
+}
 
-  return repoPath;
+/**
+ * Installs a freshly cloned repository into the shared cache path.
+ */
+async function installClonedRepository(
+  clonePath: string,
+  repositoryPath: string,
+): Promise<void> {
+  if (await pathExists(repositoryPath)) {
+    console.error(
+      `Shared repository cache at ${repositoryPath} appeared during clone; reusing it.`,
+    );
+
+    try {
+      await openRepository(repositoryPath);
+      await removePathIfExists(clonePath);
+      return;
+    } catch (openError) {
+      const message = openError instanceof Error
+        ? openError.message
+        : String(openError);
+      console.error(
+        `Existing shared repository cache was invalid after race; replacing it: ${message}`,
+      );
+      await removePathIfExists(repositoryPath);
+    }
+  }
+
+  try {
+    await Deno.rename(clonePath, repositoryPath);
+  } catch (error) {
+    if (
+      !(error instanceof Deno.errors.AlreadyExists) &&
+      !(await pathExists(repositoryPath))
+    ) {
+      throw error;
+    }
+
+    console.error(
+      `Shared repository cache at ${repositoryPath} appeared during clone; reusing it.`,
+    );
+
+    try {
+      await openRepository(repositoryPath);
+    } catch (openError) {
+      const message = openError instanceof Error
+        ? openError.message
+        : String(openError);
+      console.error(
+        `Existing shared repository cache was invalid after race; replacing it: ${message}`,
+      );
+      await removePathIfExists(repositoryPath);
+      await Deno.rename(clonePath, repositoryPath);
+      return;
+    }
+
+    await removePathIfExists(clonePath);
+  }
+}
+
+/**
+ * Syncs the working tree to the fetched remote default branch.
+ */
+async function syncRepositoryToRemoteDefaultBranch(
+  repo: Repository,
+  repositoryPath: string,
+): Promise<Repository> {
+  const remote = repo.getRemote("origin");
+  await remote.fetch([]);
+  repo = await openRepository(repositoryPath);
+
+  const refreshedRemote = repo.getRemote("origin");
+  const defaultBranchRef = await refreshedRemote.defaultBranch();
+  repo = await openRepository(repositoryPath);
+
+  if (!defaultBranchRef.startsWith("refs/heads/")) {
+    throw new Error(
+      `Remote default branch has unexpected format: ${defaultBranchRef}`,
+    );
+  }
+
+  const branchName = defaultBranchRef.slice("refs/heads/".length);
+  const remoteTrackingRef = repo.getReference(
+    `refs/remotes/origin/${branchName}`,
+  )
+    .resolve();
+  const targetOid = remoteTrackingRef.target();
+
+  if (!targetOid) {
+    throw new Error(
+      `Remote tracking branch refs/remotes/origin/${branchName} has no target.`,
+    );
+  }
+
+  repo.setHeadDetached(repo.getCommit(targetOid));
+  repo.checkoutHead({ force: true, removeUntracked: true });
+  return await openRepository(repositoryPath);
+}
+
+/**
+ * Initializes the FEP repository using a shared on-disk cache.
+ * This should be called on server startup.
+ *
+ * @returns The shared repository path
+ * @throws Error if initialization fails
+ */
+export async function initializeRepository(
+  options: InitializeRepositoryOptions = {},
+): Promise<string> {
+  currentRepo = null;
+  currentRepoPath = null;
+
+  const repositoryPath = resolveRepositoryPath(options);
+  const existingRepo = await openExistingRepository(repositoryPath);
+
+  if (existingRepo) {
+    currentRepo = existingRepo;
+    currentRepoPath = repositoryPath;
+    console.error(`Reusing shared FEP repository cache at: ${repositoryPath}`);
+
+    try {
+      await refreshRepository();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(
+        `Warning: Failed to refresh shared repository cache, continuing with stale data: ${message}`,
+      );
+    }
+
+    return repositoryPath;
+  }
+
+  const tempClonePath = await createTempCloneDir(repositoryPath);
+
+  try {
+    await cloneWithRetry(resolveRepositoryUrl(options), tempClonePath);
+    await options.onBeforeInstallClone?.();
+    await installClonedRepository(tempClonePath, repositoryPath);
+
+    currentRepo = await openRepository(repositoryPath);
+    currentRepoPath = repositoryPath;
+
+    return repositoryPath;
+  } catch (error) {
+    await removePathIfExists(tempClonePath);
+    throw error;
+  }
 }
 
 /**
@@ -126,12 +357,11 @@ export async function refreshRepository(): Promise<void> {
   }
 
   try {
-    console.error("Fetching latest FEP documents...");
-    const remote = currentRepo.getRemote("origin");
-    await remote.fetch([]);
-
-    // Re-open the repository to get the latest state
-    currentRepo = await openRepository(currentRepoPath);
+    console.error("Refreshing shared FEP repository cache...");
+    currentRepo = await syncRepositoryToRemoteDefaultBranch(
+      currentRepo,
+      currentRepoPath,
+    );
     console.error("FEP repository refreshed successfully.");
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -153,7 +383,7 @@ export async function readFile(relativePath: string): Promise<string> {
     );
   }
 
-  const fullPath = `${currentRepoPath}/${relativePath}`;
+  const fullPath = join(currentRepoPath, relativePath);
   try {
     return await Deno.readTextFile(fullPath);
   } catch (error) {
@@ -175,7 +405,7 @@ export async function fileExists(relativePath: string): Promise<boolean> {
     return false;
   }
 
-  const fullPath = `${currentRepoPath}/${relativePath}`;
+  const fullPath = join(currentRepoPath, relativePath);
   try {
     await Deno.stat(fullPath);
     return true;
@@ -197,7 +427,7 @@ export async function listDirectory(relativePath: string): Promise<string[]> {
     );
   }
 
-  const fullPath = `${currentRepoPath}/${relativePath}`;
+  const fullPath = join(currentRepoPath, relativePath);
   const entries: string[] = [];
 
   try {
@@ -215,12 +445,9 @@ export async function listDirectory(relativePath: string): Promise<string[]> {
 }
 
 /**
- * Cleans up the repository on shutdown.
+ * Releases in-process repository state on shutdown.
  */
-export async function cleanupRepository(): Promise<void> {
-  if (currentRepoPath) {
-    await cleanupOldRepo(currentRepoPath);
-    currentRepo = null;
-    currentRepoPath = null;
-  }
+export function cleanupRepository(): void {
+  currentRepo = null;
+  currentRepoPath = null;
 }

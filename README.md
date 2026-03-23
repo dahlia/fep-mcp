@@ -5,9 +5,9 @@ FEP MCP
 [![GitHub Actions][GitHub Actions badge]][GitHub Actions]
 
 An [MCP] (Model Context Protocol) server that provides access to [Fediverse
-Enhancement Proposals][FEP] (FEPs). This server clones the FEP repository from
-Codeberg on startup and exposes tools and resources for AI assistants to read
-and search FEP documents.
+Enhancement Proposals][FEP] (FEPs). This server keeps a shared local cache of
+the FEP repository from Codeberg, refreshes it on startup, and exposes tools
+and resources for AI assistants to read and search FEP documents.
 
 [JSR]: https://jsr.io/@hongminhee/fep-mcp
 [JSR badge]: https://jsr.io/badges/@hongminhee/fep-mcp
@@ -58,6 +58,15 @@ git clone https://github.com/dahlia/fep-mcp.git
 cd fep-mcp
 deno task compile
 ~~~~
+
+### Shared repository cache
+
+The server stores the cloned FEP repository in a shared cache directory on the
+local machine and reuses it across restarts. On startup it tries to refresh the
+cache from Codeberg; if the refresh fails but an existing cache is available,
+the server starts with the stale local copy instead.
+
+Set `FEP_MCP_REPOSITORY_DIR` to override the cache location.
 
 
 Usage with Claude Desktop
