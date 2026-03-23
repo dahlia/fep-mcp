@@ -1,7 +1,7 @@
 {
   "name": "@hongminhee/fep-mcp",
   "version": "0.2.0",
-  "license": "AGPL-3.0",
+  "license": "AGPL-3.0-or-later",
   "exports": "./main.ts",
   "tasks": {
     "start": "deno run --allow-ffi --allow-read --allow-write --allow-net --allow-env --allow-sys main.ts",
