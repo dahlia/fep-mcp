@@ -35,6 +35,8 @@ You can run the server directly from [JSR]:
 
 ~~~~sh
 deno run \
+  --no-config \
+  --node-modules-dir=auto \
   --allow-ffi \
   --allow-read \
   --allow-write \
@@ -43,6 +45,12 @@ deno run \
   --allow-sys \
   jsr:@hongminhee/fep-mcp
 ~~~~
+
+The `--no-config` flag disables automatic loading of local Deno configuration.
+The `--node-modules-dir=auto` flag installs npm dependencies automatically,
+avoiding errors such as “Could not find a matching package … in the
+node_modules directory.” It can create a *node_modules* directory in the
+working directory, so run the command from a writable location.
 
 ### Using a prebuilt binary
 
@@ -84,6 +92,8 @@ Add the following to your Claude Desktop configuration file:
       "command": "deno",
       "args": [
         "run",
+        "--no-config",
+        "--node-modules-dir=auto",
         "--allow-ffi",
         "--allow-read",
         "--allow-write",
@@ -106,6 +116,8 @@ Add the server to your Claude Code MCP settings:
 ~~~~sh
 claude mcp add fep -- \
   deno run \
+  --no-config \
+  --node-modules-dir=auto \
   --allow-ffi \
   --allow-read \
   --allow-write \
@@ -147,7 +159,7 @@ Available resources
 License
 -------
 
-Copyright (c) 2025 Hong Minhee and contributors.
+Copyright © 2025–2026 Hong Minhee and contributors.
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU Affero General Public License as published by the Free
